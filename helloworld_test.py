@@ -1,30 +1,45 @@
-from flask import Flask
+from flask import Flask, render_template
+import os
+import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
+
+def get_weather():
+    """Fetch current weather for Sydney, AU from OpenWeatherMap.
+
+    Returns a dict with keys: temp, description, icon, humidity, wind
+    or None if unavailable.
+    """
+    api_key = os.getenv('OPENWEATHER_API_KEY')
+    if not api_key:
+        return None
+    try:
+        url = 'https://api.openweathermap.org/data/2.5/weather'
+        params = {'q': 'Sydney,AU', 'units': 'metric', 'appid': api_key}
+        resp = requests.get(url, params=params, timeout=5)
+        if resp.status_code != 200:
+            return None
+        j = resp.json()
+        weather = {
+            'temp': j.get('main', {}).get('temp'),
+            'description': j.get('weather', [{}])[0].get('description'),
+            'icon': j.get('weather', [{}])[0].get('icon'),
+            'humidity': j.get('main', {}).get('humidity'),
+            'wind': j.get('wind', {}).get('speed')
+        }
+        return weather
+    except Exception:
+        return None
+
+
 @app.route('/')
 def hello():
-    return '''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Hello World</title>
-        <style>
-            body { font-family: Arial; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-            .container { text-align: center; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-            h1 { color: #333; margin: 0; }
-            button { background-color: #667eea; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
-            button:hover { background-color: #764ba2; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>Hello, World!</h1>
-            <button onclick="alert('Button clicked!')">Click Me</button>
-        </div>
-    </body>
-    </html>
-    '''
+    weather = get_weather()
+    return render_template('index.html', weather=weather)
 
 
 if __name__ == '__main__':
